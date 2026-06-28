@@ -38,10 +38,25 @@ def grilled_chicken_with_yoghurt(env, hot: bool, bland: float):
     return 0
 
 
+def velocity_error(env):
+    return torch.full((env.num_envs,), 2.0, device=env.device)
+
+
 @pytest.fixture
 def env():
     sim = SimulationContext()
-    return namedtuple("ManagerBasedRLEnv", ["num_envs", "dt", "device", "sim"])(20, 0.1, "cpu", sim)
+    env = namedtuple(
+        "ManagerBasedRLEnv", ["num_envs", "dt", "step_dt", "device", "sim", "max_episode_length_s", "episode_length_buf"]
+    )(
+        20,
+        0.1,
+        0.1,
+        "cpu",
+        sim,
+        1.0,
+        torch.ones(20, dtype=torch.long),
+    )
+    return env
 
 
 def test_str(env):
@@ -127,6 +142,24 @@ def test_compute(env):
     # check the reward for environment index 0
     assert float(rewards[0]) == expected_reward
     assert tuple(rewards.shape) == (env.num_envs,)
+
+
+def test_log_only_reward_term(env):
+    """Test that log-only terms are logged without contributing to reward."""
+    cfg = {
+        "term_1": RewardTermCfg(func=grilled_chicken, weight=10),
+        "velocity_error": RewardTermCfg(func=velocity_error, weight=0.0, log_only=True),
+    }
+    rew_man = RewardManager(cfg, env)
+
+    rewards = rew_man.compute(dt=env.dt)
+
+    torch.testing.assert_close(rewards, torch.full((env.num_envs,), cfg["term_1"].weight * env.dt))
+    log = rew_man.reset()
+    torch.testing.assert_close(log["Episode_Reward/velocity_error"], velocity_error(env)[0])
+    torch.testing.assert_close(
+        log["Episode_Reward/term_1"], torch.tensor(cfg["term_1"].weight * env.dt / env.max_episode_length_s)
+    )
 
 
 def test_config_empty(env):

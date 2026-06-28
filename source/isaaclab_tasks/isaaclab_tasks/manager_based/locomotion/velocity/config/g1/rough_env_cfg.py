@@ -26,6 +26,12 @@ class G1Rewards(RewardsCfg):
         weight=1.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
+    track_lin_vel_xy_error = RewTerm(
+        func=mdp.track_lin_vel_xy_yaw_frame_error,
+        weight=0.0,
+        log_only=True,
+        params={"command_name": "base_velocity"},
+    )
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp, weight=2.0, params={"command_name": "base_velocity", "std": 0.5}
     )
@@ -36,6 +42,25 @@ class G1Rewards(RewardsCfg):
             "command_name": "base_velocity",
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
             "threshold": 0.4,
+        },
+    )
+    feet_air_time_symmetry = RewTerm(
+        func=mdp.feet_air_time_symmetry_biped,
+        weight=-0.5,
+        params={
+            "command_name": "base_velocity",
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "max_err": 0.25,
+        },
+    )
+    feet_air_time_symmetry_error = RewTerm(
+        func=mdp.feet_air_time_symmetry_biped,
+        weight=0.0,
+        log_only=True,
+        params={
+            "command_name": "base_velocity",
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "max_err": 0.25,
         },
     )
     feet_slide = RewTerm(
@@ -130,9 +155,10 @@ class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.base_com = None
 
         # Rewards
-        self.rewards.lin_vel_z_l2.weight = 0.0
+        self.rewards.lin_vel_z_l2.weight = -0.5
         self.rewards.undesired_contacts = None
         self.rewards.flat_orientation_l2.weight = -1.0
+        self.rewards.ang_vel_xy_l2.weight = -0.15
         self.rewards.action_rate_l2.weight = -0.005
         self.rewards.dof_acc_l2.weight = -1.25e-7
         self.rewards.dof_acc_l2.params["asset_cfg"] = SceneEntityCfg(

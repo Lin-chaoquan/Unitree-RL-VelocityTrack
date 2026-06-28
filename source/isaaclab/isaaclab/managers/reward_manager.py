@@ -72,13 +72,13 @@ class RewardManager(ManagerBase):
         # create table for term information
         table = PrettyTable()
         table.title = "Active Reward Terms"
-        table.field_names = ["Index", "Name", "Weight"]
+        table.field_names = ["Index", "Name", "Weight", "Log Only"]
         # set alignment of table columns
         table.align["Name"] = "l"
         table.align["Weight"] = "r"
         # add info on each term
         for index, (name, term_cfg) in enumerate(zip(self._term_names, self._term_cfgs)):
-            table.add_row([index, name, term_cfg.weight])
+            table.add_row([index, name, term_cfg.weight, term_cfg.log_only])
         # convert table to string
         msg += table.get_string()
         msg += "\n"
@@ -113,11 +113,16 @@ class RewardManager(ManagerBase):
             env_ids = slice(None)
         # store information
         extras = {}
-        for key in self._episode_sums.keys():
+        for key, term_cfg in zip(self._episode_sums.keys(), self._term_cfgs):
             # store information
             # r_1 + r_2 + ... + r_n
-            episodic_sum_avg = torch.mean(self._episode_sums[key][env_ids])
-            extras["Episode_Reward/" + key] = episodic_sum_avg / self._env.max_episode_length_s
+            if term_cfg.log_only:
+                episode_lengths_s = self._env.episode_length_buf[env_ids].to(dtype=torch.float) * self._env.step_dt
+                episode_lengths_s = torch.clamp(episode_lengths_s, min=self._env.step_dt)
+                extras["Episode_Reward/" + key] = torch.mean(self._episode_sums[key][env_ids] / episode_lengths_s)
+            else:
+                episodic_sum_avg = torch.mean(self._episode_sums[key][env_ids])
+                extras["Episode_Reward/" + key] = episodic_sum_avg / self._env.max_episode_length_s
             # reset episodic sum
             self._episode_sums[key][env_ids] = 0.0
         # reset all the reward terms
@@ -142,12 +147,18 @@ class RewardManager(ManagerBase):
         self._reward_buf[:] = 0.0
         # iterate over all the reward terms
         for term_idx, (name, term_cfg) in enumerate(zip(self._term_names, self._term_cfgs)):
-            # skip if weight is zero (kind of a micro-optimization)
-            if term_cfg.weight == 0.0:
+            # skip zero-weight reward terms unless they are explicitly used for logging
+            if term_cfg.weight == 0.0 and not term_cfg.log_only:
                 self._step_reward[:, term_idx] = 0.0
                 continue
             # compute term's value
-            value = term_cfg.func(self._env, **term_cfg.params) * term_cfg.weight * dt
+            raw_value = term_cfg.func(self._env, **term_cfg.params)
+            if term_cfg.log_only:
+                # For log-only terms, store the time average of the raw metric without affecting reward.
+                self._episode_sums[name] += raw_value * dt
+                self._step_reward[:, term_idx] = raw_value
+                continue
+            value = raw_value * term_cfg.weight * dt
             # update total reward
             self._reward_buf += value
             # update episodic sum
@@ -236,6 +247,12 @@ class RewardManager(ManagerBase):
                 raise TypeError(
                     f"Weight for the term '{term_name}' is not of type float or int."
                     f" Received: '{type(term_cfg.weight)}'."
+                )
+            # check for valid log_only type
+            if not isinstance(term_cfg.log_only, bool):
+                raise TypeError(
+                    f"Log-only flag for the term '{term_name}' is not of type bool."
+                    f" Received: '{type(term_cfg.log_only)}'."
                 )
             # resolve common parameters
             self._resolve_common_term_cfg(term_name, term_cfg, min_argc=1)

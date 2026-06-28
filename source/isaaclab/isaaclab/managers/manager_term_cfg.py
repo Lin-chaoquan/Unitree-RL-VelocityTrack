@@ -326,7 +326,14 @@ class RewardTermCfg(ManagerTermBaseCfg):
     reward.
 
     Note:
-        If the weight is zero, the reward term is ignored.
+        If the weight is zero and :attr:`log_only` is false, the reward term is ignored.
+    """
+
+    log_only: bool = False
+    """Whether to compute this term only for logging.
+
+    If true, the raw term value is accumulated for episode logging but is not added to the total reward.
+    This is useful for long-running diagnostics that should appear in TensorBoard without affecting training.
     """
 
 

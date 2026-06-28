@@ -68,6 +68,29 @@ def feet_air_time_positive_biped(env, command_name: str, threshold: float, senso
     return reward
 
 
+def feet_air_time_symmetry_biped(
+    env, command_name: str, sensor_cfg: SceneEntityCfg, max_err: float = 0.25
+) -> torch.Tensor:
+    """Penalize left/right foot gait timing asymmetry for bipeds.
+
+    The term compares the active mode time of the two feet: contact time for stance feet and air time for
+    swing feet. During a regular alternating gait, the swing foot air time should stay close to the stance
+    foot contact time, which helps avoid one foot taking consistently shorter or longer steps.
+    """
+    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
+    if len(sensor_cfg.body_ids) != 2:
+        raise ValueError("feet_air_time_symmetry_biped expects exactly two feet in sensor_cfg.body_ids.")
+
+    air_time = contact_sensor.data.current_air_time[:, sensor_cfg.body_ids]
+    contact_time = contact_sensor.data.current_contact_time[:, sensor_cfg.body_ids]
+    in_contact = contact_time > 0.0
+    mode_time = torch.where(in_contact, contact_time, air_time)
+    asymmetry = torch.square(mode_time[:, 0] - mode_time[:, 1])
+    asymmetry = torch.clamp(asymmetry, max=max_err**2)
+    asymmetry *= torch.norm(env.command_manager.get_command(command_name)[:, :2], dim=1) > 0.1
+    return asymmetry
+
+
 def feet_slide(env, sensor_cfg: SceneEntityCfg, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
     """Penalize feet sliding.
 
@@ -98,6 +121,21 @@ def track_lin_vel_xy_yaw_frame_exp(
         torch.square(env.command_manager.get_command(command_name)[:, :2] - vel_yaw[:, :2]), dim=1
     )
     return torch.exp(-lin_vel_error / std**2)
+
+
+def track_lin_vel_xy_yaw_frame_error(
+    env, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """Compute the tracking error of linear velocity commands (xy axes) in the gravity aligned
+    robot frame.
+    """
+    # extract the used quantities (to enable type-hinting)
+    asset = env.scene[asset_cfg.name]
+    vel_yaw = quat_apply_inverse(yaw_quat(asset.data.root_quat_w), asset.data.root_lin_vel_w[:, :3])
+    lin_vel_error = torch.sum(
+        torch.square(env.command_manager.get_command(command_name)[:, :2] - vel_yaw[:, :2]), dim=1
+    )
+    return lin_vel_error
 
 
 def track_ang_vel_z_world_exp(
