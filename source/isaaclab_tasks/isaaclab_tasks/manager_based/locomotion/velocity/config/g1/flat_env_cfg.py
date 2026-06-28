@@ -41,6 +41,28 @@ class G1FlatEnvCfg(G1RoughEnvCfg):
         self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
 
 
+@configclass
+class G1FlatVxOnlyEnvCfg(G1FlatEnvCfg):
+    """Flat G1 velocity tracking variant focused on forward velocity."""
+
+    def __post_init__(self):
+        # post init of parent
+        super().__post_init__()
+
+        # Rewards: prioritize forward tracking while keeping yaw stable and actions smooth.
+        self.rewards.track_lin_vel_xy_exp.weight = 2.0
+        self.rewards.track_ang_vel_z_exp.weight = 0.5
+
+        # Keep the vx-first bootstrap task inside the 8 GB VRAM training budget.
+        self.scene.num_envs = 512
+
+        # Commands: first curriculum stage from PLANS.md, vx only.
+        self.commands.base_velocity.ranges.lin_vel_x = (0.2, 0.8)
+        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
+        self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)
+        self.commands.base_velocity.ranges.heading = (0.0, 0.0)
+
+
 class G1FlatEnvCfg_PLAY(G1FlatEnvCfg):
     def __post_init__(self) -> None:
         # post init of parent

@@ -125,7 +125,7 @@ class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
                 "roll": (0.0, 0.0),
                 "pitch": (0.0, 0.0),
                 "yaw": (0.0, 0.0),
-            },
+            }
         }
         self.events.base_com = None
 
