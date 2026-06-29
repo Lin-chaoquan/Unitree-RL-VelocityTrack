@@ -35,6 +35,12 @@ class G1Rewards(RewardsCfg):
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp, weight=2.0, params={"command_name": "base_velocity", "std": 0.5}
     )
+    track_ang_vel_z_error = RewTerm(
+        func=mdp.track_ang_vel_z_world_error,
+        weight=0.0,
+        log_only=True,
+        params={"command_name": "base_velocity"},
+    )
     feet_air_time = RewTerm(
         func=mdp.feet_air_time_positive_biped,
         weight=0.25,
@@ -61,6 +67,15 @@ class G1Rewards(RewardsCfg):
             "command_name": "base_velocity",
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
             "max_err": 0.25,
+        },
+    )
+    feet_contact_count = RewTerm(
+        func=mdp.feet_contact_count_biped,
+        weight=-0.15,
+        params={
+            "command_name": "base_velocity",
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "command_threshold": 0.1,
         },
     )
     feet_slide = RewTerm(
@@ -123,6 +138,16 @@ class G1Rewards(RewardsCfg):
         weight=-0.1,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names="torso_joint")},
     )
+    joint_vel_torso = RewTerm(
+        func=mdp.joint_vel_l2,
+        weight=-0.02,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names="torso_joint")},
+    )
+    joint_vel_hip_yaw = RewTerm(
+        func=mdp.joint_vel_l2,
+        weight=-0.005,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=".*_hip_yaw_joint")},
+    )
 
 
 @configclass
@@ -155,12 +180,15 @@ class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.base_com = None
 
         # Rewards
+        self.rewards.track_lin_vel_xy_exp.weight = 1.5
+        self.rewards.track_lin_vel_xy_error.weight = -0.25
+        self.rewards.track_lin_vel_xy_error.log_only = False
         self.rewards.lin_vel_z_l2.weight = -0.5
         self.rewards.undesired_contacts = None
         self.rewards.flat_orientation_l2.weight = -1.0
-        self.rewards.ang_vel_xy_l2.weight = -0.15
-        self.rewards.action_rate_l2.weight = -0.005
-        self.rewards.dof_acc_l2.weight = -1.25e-7
+        self.rewards.ang_vel_xy_l2.weight = -0.25
+        self.rewards.action_rate_l2.weight = -0.01
+        self.rewards.dof_acc_l2.weight = -2.0e-7
         self.rewards.dof_acc_l2.params["asset_cfg"] = SceneEntityCfg(
             "robot", joint_names=[".*_hip_.*", ".*_knee_joint"]
         )
@@ -168,6 +196,8 @@ class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
             "robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*"]
         )
+        self.rewards.joint_deviation_hip.weight = -0.15
+        self.rewards.joint_deviation_torso.weight = -0.2
 
         # Commands
         self.commands.base_velocity.ranges.lin_vel_x = (0.0, 1.0)

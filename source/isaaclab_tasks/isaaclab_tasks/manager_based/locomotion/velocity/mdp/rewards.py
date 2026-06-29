@@ -91,6 +91,26 @@ def feet_air_time_symmetry_biped(
     return asymmetry
 
 
+def feet_contact_count_biped(
+    env, command_name: str, sensor_cfg: SceneEntityCfg, command_threshold: float = 0.1
+) -> torch.Tensor:
+    """Penalize non-alternating biped contact patterns while walking.
+
+    The term is zero when exactly one foot is in contact. It softly penalizes double support and flight
+    phases under non-zero velocity commands, which discourages stop-and-go solutions without prescribing
+    a fixed gait phase schedule.
+    """
+    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
+    if len(sensor_cfg.body_ids) != 2:
+        raise ValueError("feet_contact_count_biped expects exactly two feet in sensor_cfg.body_ids.")
+
+    contact_time = contact_sensor.data.current_contact_time[:, sensor_cfg.body_ids]
+    contact_count = torch.sum((contact_time > 0.0).int(), dim=1)
+    penalty = torch.abs(contact_count - 1).float()
+    penalty *= torch.norm(env.command_manager.get_command(command_name)[:, :2], dim=1) > command_threshold
+    return penalty
+
+
 def feet_slide(env, sensor_cfg: SceneEntityCfg, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
     """Penalize feet sliding.
 
@@ -146,6 +166,14 @@ def track_ang_vel_z_world_exp(
     asset = env.scene[asset_cfg.name]
     ang_vel_error = torch.square(env.command_manager.get_command(command_name)[:, 2] - asset.data.root_ang_vel_w[:, 2])
     return torch.exp(-ang_vel_error / std**2)
+
+
+def track_ang_vel_z_world_error(
+    env, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """Compute squared yaw-rate tracking error in world frame."""
+    asset = env.scene[asset_cfg.name]
+    return torch.square(env.command_manager.get_command(command_name)[:, 2] - asset.data.root_ang_vel_w[:, 2])
 
 
 def stand_still_joint_deviation_l1(

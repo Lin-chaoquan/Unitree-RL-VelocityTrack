@@ -27,10 +27,15 @@ class G1FlatEnvCfg(G1RoughEnvCfg):
         # Rewards
         self.rewards.track_ang_vel_z_exp.weight = 1.0
         self.rewards.lin_vel_z_l2.weight = -0.2
-        self.rewards.action_rate_l2.weight = -0.005
-        self.rewards.dof_acc_l2.weight = -1.0e-7
-        self.rewards.feet_air_time.weight = 0.75
+        self.rewards.flat_orientation_l2.weight = -1.5
+        self.rewards.ang_vel_xy_l2.weight = -0.35
+        self.rewards.action_rate_l2.weight = -0.01
+        self.rewards.dof_acc_l2.weight = -2.0e-7
+        self.rewards.feet_air_time.weight = 1.25
         self.rewards.feet_air_time.params["threshold"] = 0.4
+        self.rewards.feet_air_time_symmetry.weight = -0.75
+        self.rewards.feet_contact_count.weight = -0.2
+        self.rewards.feet_slide.weight = -0.15
         self.rewards.dof_torques_l2.weight = -2.0e-6
         self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
             "robot", joint_names=[".*_hip_.*", ".*_knee_joint"]
@@ -51,12 +56,26 @@ class G1FlatVxOnlyEnvCfg(G1FlatEnvCfg):
 
         # Rewards: prioritize forward tracking while keeping yaw stable and actions smooth.
         self.rewards.track_lin_vel_xy_exp.weight = 2.0
+        self.rewards.track_lin_vel_xy_error.weight = -0.4
+        self.rewards.track_lin_vel_xy_error.log_only = False
         self.rewards.track_ang_vel_z_exp.weight = 0.5
+        self.rewards.track_ang_vel_z_error.weight = -0.15
+        self.rewards.track_ang_vel_z_error.log_only = False
+        self.rewards.joint_deviation_hip.weight = -0.2
+        self.rewards.joint_deviation_torso.weight = -0.3
+        self.rewards.joint_vel_torso.weight = -0.04
+        self.rewards.joint_vel_hip_yaw.weight = -0.01
+        self.rewards.action_rate_l2.weight = -0.012
+        self.rewards.dof_acc_l2.weight = -2.5e-7
+        self.rewards.feet_air_time.weight = 1.5
+        self.rewards.feet_contact_count.weight = -0.25
 
         # Keep the vx-first bootstrap task inside the 8 GB VRAM training budget.
         self.scene.num_envs = 512
+        self.actions.joint_pos.scale = 0.35
 
         # Commands: first curriculum stage from PLANS.md, vx only.
+        self.commands.base_velocity.resampling_time_range = (12.0, 12.0)
         self.commands.base_velocity.ranges.lin_vel_x = (0.2, 0.8)
         self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
         self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)

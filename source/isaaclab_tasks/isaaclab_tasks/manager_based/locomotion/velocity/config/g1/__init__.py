@@ -48,7 +48,7 @@ gym.register(
 
 
 gym.register(
-    id="Isaac-Velocity-Flat-G1-VxOnly-v0",
+    id="Isaac-Velocity-Flat-G1-VxOnly-SymBiped-v0",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={
