@@ -54,5 +54,5 @@ class G1FlatVxOnlyPPORunnerCfg(G1FlatPPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()
 
-        self.experiment_name = "g1_flat_vx_only_sym_biped"
+        self.experiment_name = "g1_flat_vx_only_gait"
         self.max_iterations = 5000

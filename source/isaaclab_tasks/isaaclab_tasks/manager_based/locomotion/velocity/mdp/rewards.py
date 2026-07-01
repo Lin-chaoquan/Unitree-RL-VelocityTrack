@@ -111,6 +111,62 @@ def feet_contact_count_biped(
     return penalty
 
 
+def feet_gait_clock_biped(
+    env,
+    command_name: str,
+    sensor_cfg: SceneEntityCfg,
+    period: float,
+    offset: list[float],
+    threshold: float,
+    command_threshold: float = 0.1,
+) -> torch.Tensor:
+    """Reward biped feet for matching an alternating clocked contact pattern.
+
+    The clock defines each foot's stance phase as ``phase < threshold``. With offsets ``[0.0, 0.5]``
+    and a threshold slightly above ``0.5``, the target gait becomes an alternating walk with a small
+    double-support overlap.
+    """
+    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
+    if len(sensor_cfg.body_ids) != 2:
+        raise ValueError("feet_gait_clock_biped expects exactly two feet in sensor_cfg.body_ids.")
+    if len(offset) != 2:
+        raise ValueError("feet_gait_clock_biped expects exactly two phase offsets.")
+    if period <= 0.0:
+        raise ValueError("feet_gait_clock_biped expects period to be positive.")
+
+    contact_time = contact_sensor.data.current_contact_time[:, sensor_cfg.body_ids]
+    in_contact = contact_time > 0.0
+    command = env.command_manager.get_command(command_name)[:, :3]
+    phase_offset = torch.tensor(offset, device=env.device, dtype=torch.float32).unsqueeze(0)
+    elapsed_time = env.episode_length_buf.float().unsqueeze(1) * env.step_dt
+    global_phase = torch.remainder(elapsed_time, period) / period
+    phase = torch.remainder(global_phase + phase_offset, 1.0)
+    expected_contact = phase < threshold
+    reward = torch.mean((in_contact == expected_contact).float(), dim=1)
+    reward *= torch.norm(command, dim=1) > command_threshold
+    return reward
+
+
+def feet_close_biped(
+    env,
+    asset_cfg: SceneEntityCfg,
+    distance_threshold: float,
+    command_name: str | None = None,
+    command_threshold: float = 0.1,
+) -> torch.Tensor:
+    """Penalize the two feet getting close enough to collide or trip each other."""
+    asset = env.scene[asset_cfg.name]
+    if len(asset_cfg.body_ids) != 2:
+        raise ValueError("feet_close_biped expects exactly two feet in asset_cfg.body_ids.")
+
+    feet_pos = asset.data.body_pos_w[:, asset_cfg.body_ids, :]
+    feet_distance = torch.norm(feet_pos[:, 0, :] - feet_pos[:, 1, :], dim=1)
+    penalty = torch.clamp(distance_threshold - feet_distance, min=0.0) / distance_threshold
+    if command_name is not None:
+        penalty *= torch.norm(env.command_manager.get_command(command_name)[:, :2], dim=1) > command_threshold
+    return penalty
+
+
 def feet_slide(env, sensor_cfg: SceneEntityCfg, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
     """Penalize feet sliding.
 
@@ -143,19 +199,19 @@ def track_lin_vel_xy_yaw_frame_exp(
     return torch.exp(-lin_vel_error / std**2)
 
 
-def track_lin_vel_xy_yaw_frame_error(
-    env, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
-) -> torch.Tensor:
-    """Compute the tracking error of linear velocity commands (xy axes) in the gravity aligned
-    robot frame.
-    """
-    # extract the used quantities (to enable type-hinting)
-    asset = env.scene[asset_cfg.name]
-    vel_yaw = quat_apply_inverse(yaw_quat(asset.data.root_quat_w), asset.data.root_lin_vel_w[:, :3])
-    lin_vel_error = torch.sum(
-        torch.square(env.command_manager.get_command(command_name)[:, :2] - vel_yaw[:, :2]), dim=1
-    )
-    return lin_vel_error
+# def track_lin_vel_xy_yaw_frame_error(
+#     env, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+# ) -> torch.Tensor:
+#     """Compute the tracking error of linear velocity commands (xy axes) in the gravity aligned
+#     robot frame.
+#     """
+#     # extract the used quantities (to enable type-hinting)
+#     asset = env.scene[asset_cfg.name]
+#     vel_yaw = quat_apply_inverse(yaw_quat(asset.data.root_quat_w), asset.data.root_lin_vel_w[:, :3])
+#     lin_vel_error = torch.pow(torch.sum(
+#         torch.square(env.command_manager.get_command(command_name)[:, :2] - vel_yaw[:, :2]), dim=1
+#     ), 0.5)
+#     return lin_vel_error
 
 
 def track_ang_vel_z_world_exp(
@@ -168,12 +224,43 @@ def track_ang_vel_z_world_exp(
     return torch.exp(-ang_vel_error / std**2)
 
 
-def track_ang_vel_z_world_error(
-    env, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
-) -> torch.Tensor:
-    """Compute squared yaw-rate tracking error in world frame."""
+# def track_ang_vel_z_world_error(
+#     env, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+# ) -> torch.Tensor:
+#     """Compute squared yaw-rate tracking error in world frame."""
+#     asset = env.scene[asset_cfg.name]
+#     return torch.square(env.command_manager.get_command(command_name)[:, 2] - asset.data.root_ang_vel_w[:, 2])
+
+
+def body_height_l2(env, target_height: float, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
+    """Penalize selected body height deviation from a target world-frame z value."""
     asset = env.scene[asset_cfg.name]
-    return torch.square(env.command_manager.get_command(command_name)[:, 2] - asset.data.root_ang_vel_w[:, 2])
+    return torch.sum(torch.square(asset.data.body_pos_w[:, asset_cfg.body_ids, 2] - target_height), dim=1)
+
+
+def body_height_l2_deadband(
+    env, target_height: float, deadband: float, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """Penalize selected body height only after it leaves a small acceptable z band."""
+    asset = env.scene[asset_cfg.name]
+    height_error = torch.abs(asset.data.body_pos_w[:, asset_cfg.body_ids, 2] - target_height)
+    return torch.sum(torch.square(torch.clamp(height_error - deadband, min=0.0)), dim=1)
+
+
+def joint_deviation_l1_deadband(
+    env, deadband: float, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """Penalize selected joint deviation from default only outside a small tolerance band."""
+    asset = env.scene[asset_cfg.name]
+    joint_error = torch.abs(asset.data.joint_pos[:, asset_cfg.joint_ids] - asset.data.default_joint_pos[:, asset_cfg.joint_ids])
+    return torch.sum(torch.clamp(joint_error - deadband, min=0.0), dim=1)
+
+
+def joint_vel_l2_deadband(env, deadband: float, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
+    """Penalize selected joint speed only when it exceeds a small tolerance."""
+    asset = env.scene[asset_cfg.name]
+    joint_speed = torch.abs(asset.data.joint_vel[:, asset_cfg.joint_ids])
+    return torch.sum(torch.square(torch.clamp(joint_speed - deadband, min=0.0)), dim=1)
 
 
 def stand_still_joint_deviation_l1(

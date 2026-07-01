@@ -48,11 +48,23 @@ gym.register(
 
 
 gym.register(
-    id="Isaac-Velocity-Flat-G1-VxOnly-SymBiped-v0",
+    id="Isaac-Velocity-Flat-G1-VxOnly-Gait-v0",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": f"{__name__}.flat_env_cfg:G1FlatVxOnlyEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1FlatVxOnlyPPORunnerCfg",
+        "skrl_cfg_entry_point": f"{agents.__name__}:skrl_flat_ppo_cfg.yaml",
+    },
+)
+
+
+gym.register(
+    id="Isaac-Velocity-Flat-G1-VxOnly-Gait-Play-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.flat_env_cfg:G1FlatVxOnlyEnvCfg_PLAY",
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1FlatVxOnlyPPORunnerCfg",
         "skrl_cfg_entry_point": f"{agents.__name__}:skrl_flat_ppo_cfg.yaml",
     },
