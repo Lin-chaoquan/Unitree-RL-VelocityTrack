@@ -17,6 +17,8 @@ import torch
 
 from isaaclab.envs import mdp
 from isaaclab.managers import SceneEntityCfg
+from isaaclab.managers.manager_base import ManagerTermBase
+from isaaclab.managers.manager_term_cfg import RewardTermCfg
 from isaaclab.sensors import ContactSensor
 from isaaclab.utils.math import quat_apply_inverse, yaw_quat
 
@@ -182,6 +184,39 @@ def feet_slide(env, sensor_cfg: SceneEntityCfg, asset_cfg: SceneEntityCfg = Scen
     body_vel = asset.data.body_lin_vel_w[:, asset_cfg.body_ids, :2]
     reward = torch.sum(body_vel.norm(dim=-1) * contacts, dim=1)
     return reward
+
+
+class joint_torque_rate_l2(ManagerTermBase):
+    """Penalize step-to-step changes in applied joint torques."""
+
+    def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRLEnv):
+        super().__init__(cfg, env)
+        asset_cfg = cfg.params.get("asset_cfg", SceneEntityCfg("robot"))
+        asset = env.scene[asset_cfg.name]
+        self._asset_name = asset_cfg.name
+        self._joint_ids = asset_cfg.joint_ids
+        self._previous_torque = asset.data.applied_torque[:, self._joint_ids].clone()
+
+    def reset(self, env_ids: torch.Tensor | None = None):
+        asset = self._env.scene[self._asset_name]
+        if env_ids is None:
+            self._previous_torque[:] = asset.data.applied_torque[:, self._joint_ids]
+        else:
+            self._previous_torque[env_ids] = asset.data.applied_torque[env_ids][:, self._joint_ids]
+
+    def __call__(self, env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
+        asset = env.scene[asset_cfg.name]
+        current_torque = asset.data.applied_torque[:, asset_cfg.joint_ids]
+        torque_rate = current_torque - self._previous_torque
+        self._previous_torque[:] = current_torque
+        return torch.sum(torch.square(torque_rate), dim=1)
+
+
+def joint_power_abs(env, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
+    """Penalize absolute mechanical joint power."""
+    asset = env.scene[asset_cfg.name]
+    power = asset.data.applied_torque[:, asset_cfg.joint_ids] * asset.data.joint_vel[:, asset_cfg.joint_ids]
+    return torch.sum(torch.abs(power), dim=1)
 
 
 def track_lin_vel_xy_yaw_frame_exp(

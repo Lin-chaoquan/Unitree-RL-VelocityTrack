@@ -178,6 +178,16 @@ class G1Rewards(RewardsCfg):
         weight=-0.01,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=G1_ARM_JOINTS), "deadband": 0.35},
     )
+    dof_torque_rate_l2 = RewTerm(
+        func=mdp.joint_torque_rate_l2,
+        weight=0.0,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*"])},
+    )
+    dof_power_abs = RewTerm(
+        func=mdp.joint_power_abs,
+        weight=0.0,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*"])},
+    )
     torso_height_l2 = RewTerm(
         func=mdp.body_height_l2_deadband,
         weight=0.0,

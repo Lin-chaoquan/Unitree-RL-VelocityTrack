@@ -54,5 +54,37 @@ class G1FlatVxOnlyPPORunnerCfg(G1FlatPPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()
 
-        self.experiment_name = "g1_flat_vx_only_gait"
+        self.experiment_name = "g1_flat_vx_full_gait"
         self.max_iterations = 5000
+
+
+@configclass
+class G1FlatVxFullPeriod070PPORunnerCfg(G1FlatVxOnlyPPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.experiment_name = "g1_flat_vx_full_period070"
+
+
+@configclass
+class G1FlatVxFullEffortPPORunnerCfg(G1FlatVxOnlyPPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.experiment_name = "g1_flat_vx_full_effort"
+
+
+@configclass
+class G1FlatVxFullPeriodEffortPPORunnerCfg(G1FlatVxOnlyPPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.experiment_name = "g1_flat_vx_full_period070_effort"
+
+
+@configclass
+class G1FlatVxYawSmallPeriodEffortPPORunnerCfg(G1FlatVxFullPeriodEffortPPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.experiment_name = "g1_flat_vx_yaw03_period070_effort"
