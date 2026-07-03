@@ -88,3 +88,56 @@ class G1FlatVxYawSmallPeriodEffortPPORunnerCfg(G1FlatVxFullPeriodEffortPPORunner
         super().__post_init__()
 
         self.experiment_name = "g1_flat_vx_yaw03_period070_effort"
+
+
+@configclass
+class G1FlatVxYawAntiHopAPPORunnerCfg(G1FlatVxYawSmallPeriodEffortPPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.experiment_name = "g1_flat_vx_yaw03_antihop_a"
+        self.max_iterations = 1000
+
+
+@configclass
+class G1FlatVxYawAntiHopBPPORunnerCfg(G1FlatVxYawAntiHopAPPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.experiment_name = "g1_flat_vx_yaw03_antihop_b"
+
+
+@configclass
+class G1FlatVxYawAntiHopPeriod065PPORunnerCfg(G1FlatVxYawAntiHopBPPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.experiment_name = "g1_flat_vx_yaw03_antihop_period065"
+        self.max_iterations = 800
+
+
+@configclass
+class G1FlatVxYawAntiHopPeriod075PPORunnerCfg(G1FlatVxYawAntiHopBPPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.experiment_name = "g1_flat_vx_yaw03_antihop_period075"
+        self.max_iterations = 800
+
+
+@configclass
+class G1FlatVxYawAntiHopPeriod080PPORunnerCfg(G1FlatVxYawAntiHopBPPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.experiment_name = "g1_flat_vx_yaw03_antihop_period080"
+        self.max_iterations = 800
+
+
+@configclass
+class G1FlatVxYawAntiHopWeakClockPPORunnerCfg(G1FlatVxYawAntiHopPeriod075PPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.experiment_name = "g1_flat_vx_yaw03_antihop_weak_clock"
+        self.max_iterations = 1000

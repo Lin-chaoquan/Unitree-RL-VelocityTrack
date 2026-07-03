@@ -150,12 +150,116 @@ class G1FlatVxYawSmallPeriodEffortEnvCfg(G1FlatVxFullPeriodEffortEnvCfg):
         self.commands.base_velocity.ranges.lin_vel_x = (0.0, 1.2)
         self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
         self.commands.base_velocity.ranges.ang_vel_z = (-0.3, 0.3)
-        self.commands.base_velocity.ranges.heading = (0.0, 0.0)
+        self.commands.base_velocity.heading_command = False
+        self.commands.base_velocity.rel_heading_envs = 0.0
+        self.commands.base_velocity.ranges.heading = None
 
         # Give yaw tracking a little more weight, but keep forward tracking dominant.
         self.rewards.track_ang_vel_z_exp.weight = 1.0
         self.rewards.joint_vel_hip_yaw.weight = -0.015
         self.rewards.feet_gait_clock.weight = 1.0
+
+        #Yaw-in-Place Experiment:小线速度下施加yaw转向
+        # self.commands.base_velocity.ranges.lin_vel_x = (1.0, 1.0)
+        # self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
+        # self.commands.base_velocity.ranges.ang_vel_z = (-0.3, 0.3)
+        # self.commands.base_velocity.heading_command = False
+        # self.commands.base_velocity.ranges.heading = (0.0, 0.0)
+
+        # Give yaw tracking a little more weight, but keep forward tracking dominant.
+        # self.rewards.track_ang_vel_z_exp.weight = 1.2
+        # self.rewards.joint_vel_hip_yaw.weight = -0.015
+        # self.rewards.feet_gait_clock.weight = 0.7
+        # self.rewards.feet_slide.weight = -0.25
+        # self.rewards.ang_vel_xy_l2.weight = -0.55
+        # self.rewards.flat_orientation_l2.weight = -1.8
+
+
+@configclass
+class G1FlatVxYawAntiHopAEnvCfg(G1FlatVxYawSmallPeriodEffortEnvCfg):
+    """Anti-hop experiment A: reduce air-time reward and strengthen contact-pattern penalty."""
+
+    def __post_init__(self):
+        # post init of parent
+        super().__post_init__()
+
+        self.rewards.feet_air_time.weight = 0.8
+        self.rewards.feet_air_time.params["threshold"] = 0.3
+        self.rewards.feet_contact_count.weight = -0.35
+        self.rewards.feet_gait_clock.params["period"] = 0.7
+        self.rewards.feet_gait_clock.weight = 1.0
+        self.rewards.lin_vel_z_l2.weight = -0.3
+        self.rewards.ang_vel_xy_l2.weight = -0.45
+        self.rewards.torso_height_l2.weight = -1.25
+
+        #测试速度指令
+        self.commands.base_velocity.ranges.lin_vel_x = (0.0, 1.2)
+        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
+        self.commands.base_velocity.ranges.ang_vel_z = (-0.3, 0.3)
+        self.commands.base_velocity.heading_command = False
+        self.commands.base_velocity.rel_heading_envs = 0.0
+        self.commands.base_velocity.ranges.heading = None
+
+
+@configclass
+class G1FlatVxYawAntiHopBEnvCfg(G1FlatVxYawAntiHopAEnvCfg):
+    """Anti-hop experiment B: add stronger vertical and roll/pitch stabilization."""
+
+    def __post_init__(self):
+        # post init of parent
+        super().__post_init__()
+
+        self.rewards.lin_vel_z_l2.weight = -0.5
+        self.rewards.ang_vel_xy_l2.weight = -0.55
+        self.rewards.torso_height_l2.weight = -1.8
+        self.rewards.flat_orientation_l2.weight = -1.5
+
+
+@configclass
+class G1FlatVxYawAntiHopPeriod065EnvCfg(G1FlatVxYawAntiHopBEnvCfg):
+    """Anti-hop experiment C: gait-clock period 0.65 s."""
+
+    def __post_init__(self):
+        # post init of parent
+        super().__post_init__()
+
+        self.rewards.feet_gait_clock.params["period"] = 0.65
+
+
+@configclass
+class G1FlatVxYawAntiHopPeriod075EnvCfg(G1FlatVxYawAntiHopBEnvCfg):
+    """Anti-hop experiment C: gait-clock period 0.75 s."""
+
+    def __post_init__(self):
+        # post init of parent
+        super().__post_init__()
+
+        self.rewards.feet_gait_clock.params["period"] = 0.75
+
+
+@configclass
+class G1FlatVxYawAntiHopPeriod080EnvCfg(G1FlatVxYawAntiHopBEnvCfg):
+    """Anti-hop experiment C: gait-clock period 0.80 s."""
+
+    def __post_init__(self):
+        # post init of parent
+        super().__post_init__()
+
+        self.rewards.feet_gait_clock.params["period"] = 0.8
+
+
+@configclass
+class G1FlatVxYawAntiHopWeakClockEnvCfg(G1FlatVxYawAntiHopPeriod075EnvCfg):
+    """Anti-hop experiment D: weaken clock and air-time shaping around the 0.75 s period."""
+
+    def __post_init__(self):
+        # post init of parent
+        super().__post_init__()
+
+        self.rewards.feet_gait_clock.weight = 0.6
+        self.rewards.feet_air_time.weight = 0.6
+        self.rewards.feet_contact_count.weight = -0.4
+        self.rewards.feet_air_time_symmetry.weight = -0.5
 
 
 class G1FlatEnvCfg_PLAY(G1FlatEnvCfg):
@@ -187,6 +291,29 @@ class G1FlatVxOnlyEnvCfg_PLAY(G1FlatVxOnlyEnvCfg):
         self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
         self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)
         self.commands.base_velocity.ranges.heading = (0.0, 0.0)
+
+        # disable randomization for play
+        self.observations.policy.enable_corruption = False
+        # remove random pushing
+        self.events.base_external_force_torque = None
+        self.events.push_robot = None
+
+
+class G1FlatVxYawSmallPeriodEffortEnvCfg_PLAY(G1FlatVxYawSmallPeriodEffortEnvCfg):
+    def __post_init__(self) -> None:
+        # post init of parent
+        super().__post_init__()
+
+        # make a smaller scene for play
+        self.scene.num_envs = 50
+        self.scene.env_spacing = 2.5
+
+        # fixed forward walking command for visual gait inspection
+        self.commands.base_velocity.ranges.lin_vel_x = (0.5, 0.5)
+        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
+        self.commands.base_velocity.ranges.ang_vel_z = (-0.0, -0.0)
+        self.commands.base_velocity.rel_heading_envs = 0.0
+        self.commands.base_velocity.ranges.heading = None
 
         # disable randomization for play
         self.observations.policy.enable_corruption = False

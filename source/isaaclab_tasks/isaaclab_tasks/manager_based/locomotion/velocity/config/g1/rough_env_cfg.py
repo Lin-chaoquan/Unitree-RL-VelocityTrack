@@ -185,7 +185,7 @@ class G1Rewards(RewardsCfg):
     )
     dof_power_abs = RewTerm(
         func=mdp.joint_power_abs,
-        weight=0.0,
+        weight=-2.0e-5,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*"])},
     )
     torso_height_l2 = RewTerm(
