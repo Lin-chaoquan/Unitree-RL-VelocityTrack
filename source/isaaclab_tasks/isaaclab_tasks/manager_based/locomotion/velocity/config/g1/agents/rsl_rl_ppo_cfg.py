@@ -5,7 +5,12 @@
 
 from isaaclab.utils import configclass
 
-from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, RslRlPpoAlgorithmCfg
+from isaaclab_rl.rsl_rl import (
+    RslRlOnPolicyRunnerCfg,
+    RslRlPpoActorCriticCfg,
+    RslRlPpoActorCriticRecurrentCfg,
+    RslRlPpoAlgorithmCfg,
+)
 
 
 @configclass
@@ -141,3 +146,54 @@ class G1FlatVxYawAntiHopWeakClockPPORunnerCfg(G1FlatVxYawAntiHopPeriod075PPORunn
 
         self.experiment_name = "g1_flat_vx_yaw03_antihop_weak_clock"
         self.max_iterations = 1000
+
+
+@configclass
+class G1FlatOmniHumanPPORunnerCfg(G1FlatPPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.experiment_name = "g1_flat_omni_human_arm_simple"
+        self.max_iterations = 500
+        self.policy.actor_hidden_dims = [512, 256, 128]
+        self.policy.critic_hidden_dims = [512, 256, 128]
+        self.algorithm.entropy_coef = 0.003
+
+
+@configclass
+class G1FlatOmniHumanFullPPORunnerCfg(G1FlatOmniHumanPPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.experiment_name = "g1_flat_omni_human_full"
+        self.max_iterations = 4000
+
+
+@configclass
+class G1FlatOmniHumanSimToRealPPORunnerCfg(G1FlatOmniHumanPPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.experiment_name = "g1_flat_omni_human_sim2real_mlp"
+        self.policy.actor_obs_normalization = True
+        self.policy.critic_obs_normalization = True
+        self.max_iterations = 4000
+
+
+@configclass
+class G1FlatOmniHumanGRUPPORunnerCfg(G1FlatOmniHumanSimToRealPPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.experiment_name = "g1_flat_omni_human_sim2real_gru"
+        self.policy = RslRlPpoActorCriticRecurrentCfg(
+            init_noise_std=0.8,
+            actor_obs_normalization=True,
+            critic_obs_normalization=True,
+            actor_hidden_dims=[512, 256, 128],
+            critic_hidden_dims=[512, 256, 128],
+            activation="elu",
+            rnn_type="gru",
+            rnn_hidden_dim=256,
+            rnn_num_layers=1,
+        )

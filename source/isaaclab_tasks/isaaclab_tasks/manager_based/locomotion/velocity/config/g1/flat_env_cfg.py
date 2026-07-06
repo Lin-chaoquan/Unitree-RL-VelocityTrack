@@ -3,8 +3,11 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
+
+import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
 
 from .rough_env_cfg import G1RoughEnvCfg
 
@@ -192,14 +195,6 @@ class G1FlatVxYawAntiHopAEnvCfg(G1FlatVxYawSmallPeriodEffortEnvCfg):
         self.rewards.ang_vel_xy_l2.weight = -0.45
         self.rewards.torso_height_l2.weight = -1.25
 
-        #测试速度指令
-        self.commands.base_velocity.ranges.lin_vel_x = (0.0, 1.2)
-        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
-        self.commands.base_velocity.ranges.ang_vel_z = (-0.3, 0.3)
-        self.commands.base_velocity.heading_command = False
-        self.commands.base_velocity.rel_heading_envs = 0.0
-        self.commands.base_velocity.ranges.heading = None
-
 
 @configclass
 class G1FlatVxYawAntiHopBEnvCfg(G1FlatVxYawAntiHopAEnvCfg):
@@ -216,7 +211,7 @@ class G1FlatVxYawAntiHopBEnvCfg(G1FlatVxYawAntiHopAEnvCfg):
 
 
 @configclass
-class G1FlatVxYawAntiHopPeriod065EnvCfg(G1FlatVxYawAntiHopBEnvCfg):
+class G1FlatVxYawAntiHopPeriod065EnvCfg(G1FlatVxYawAntiHopAEnvCfg):
     """Anti-hop experiment C: gait-clock period 0.65 s."""
 
     def __post_init__(self):
@@ -227,7 +222,7 @@ class G1FlatVxYawAntiHopPeriod065EnvCfg(G1FlatVxYawAntiHopBEnvCfg):
 
 
 @configclass
-class G1FlatVxYawAntiHopPeriod075EnvCfg(G1FlatVxYawAntiHopBEnvCfg):
+class G1FlatVxYawAntiHopPeriod075EnvCfg(G1FlatVxYawAntiHopAEnvCfg):
     """Anti-hop experiment C: gait-clock period 0.75 s."""
 
     def __post_init__(self):
@@ -238,7 +233,7 @@ class G1FlatVxYawAntiHopPeriod075EnvCfg(G1FlatVxYawAntiHopBEnvCfg):
 
 
 @configclass
-class G1FlatVxYawAntiHopPeriod080EnvCfg(G1FlatVxYawAntiHopBEnvCfg):
+class G1FlatVxYawAntiHopPeriod080EnvCfg(G1FlatVxYawAntiHopAEnvCfg):
     """Anti-hop experiment C: gait-clock period 0.80 s."""
 
     def __post_init__(self):
@@ -249,7 +244,7 @@ class G1FlatVxYawAntiHopPeriod080EnvCfg(G1FlatVxYawAntiHopBEnvCfg):
 
 
 @configclass
-class G1FlatVxYawAntiHopWeakClockEnvCfg(G1FlatVxYawAntiHopPeriod075EnvCfg):
+class G1FlatVxYawAntiHopWeakClockEnvCfg(G1FlatVxYawAntiHopAEnvCfg):
     """Anti-hop experiment D: weaken clock and air-time shaping around the 0.75 s period."""
 
     def __post_init__(self):
@@ -260,6 +255,138 @@ class G1FlatVxYawAntiHopWeakClockEnvCfg(G1FlatVxYawAntiHopPeriod075EnvCfg):
         self.rewards.feet_air_time.weight = 0.6
         self.rewards.feet_contact_count.weight = -0.4
         self.rewards.feet_air_time_symmetry.weight = -0.5
+
+
+@configclass
+class G1FlatOmniHumanEnvCfg(G1FlatEnvCfg):
+    """Flat G1 omni-directional task with human-like arm and gait shaping."""
+
+    def __post_init__(self):
+        # post init of parent
+        super().__post_init__()
+
+        # Observations: expose the gait phase so the policy does not have to infer the reward clock.
+        self.observations.policy.phase_clock = ObsTerm(func=mdp.gait_phase_clock, params={"period": 0.75})
+
+        # Commands: phase-1 omni range. Expand to (-0.6, 1.2), (-0.5, 0.5), (-0.6, 0.6) after stable.
+        self.commands.base_velocity.resampling_time_range = (10.0, 10.0)
+        self.commands.base_velocity.ranges.lin_vel_x = (-0.3, 0.8)
+        self.commands.base_velocity.ranges.lin_vel_y = (-0.25, 0.25)
+        self.commands.base_velocity.ranges.ang_vel_z = (-0.4, 0.4)
+        self.commands.base_velocity.heading_command = False
+        self.commands.base_velocity.rel_heading_envs = 0.0
+        self.commands.base_velocity.ranges.heading = None
+
+        # Training scale.
+        self.scene.num_envs = 4096
+        self.actions.joint_pos.scale = 0.35
+
+        # Tracking.
+        self.rewards.track_lin_vel_xy_exp.weight = 2.0
+        self.rewards.track_ang_vel_z_exp.weight = 1.2
+
+        # Anti-hop and omni contact routing.
+        self.rewards.feet_air_time.weight = 0.3
+        self.rewards.feet_air_time.params["threshold"] = 0.2
+        self.rewards.feet_contact_count.weight = -0.35
+        self.rewards.feet_contact_count_yaw.weight = -0.25
+        self.rewards.feet_gait_clock.weight = 0.0
+        self.rewards.feet_gait_clock_omni.weight = 0.6
+        self.rewards.feet_gait_clock_omni.params["period"] = 0.75
+        self.rewards.feet_slide.weight = -0.2
+        self.rewards.feet_close.weight = -0.4
+        self.rewards.feet_close.params["distance_threshold"] = 0.08
+        self.rewards.feet_touchdown_velocity.weight = -0.14
+        self.rewards.feet_swing_height_trajectory.weight = 0.45
+        self.rewards.feet_swing_vertical_velocity.weight = -0.02
+
+        # Posture.
+        self.rewards.lin_vel_z_l2.weight = -0.3
+        self.rewards.ang_vel_xy_l2.weight = -0.45
+        self.rewards.flat_orientation_l2.weight = -1.5
+        self.rewards.torso_height_l2.weight = -1.25
+
+        # Effort and smoothness.
+        self.rewards.action_rate_l2.weight = -0.012
+        self.rewards.dof_acc_l2.weight = -2.5e-7
+        self.rewards.dof_torque_rate_l2.weight = -2.5e-7
+        self.rewards.dof_power_abs.weight = -2.0e-5
+        self.rewards.stand_still.weight = -0.35
+
+        # Human-like arms: shoulder pitch swings; shoulder roll/yaw and elbows stay near the default pose.
+        self.rewards.joint_deviation_arms.weight = 0.0
+        self.rewards.joint_vel_arms.weight = 0.0
+        self.rewards.joint_deviation_arm_swing.weight = -0.003
+        self.rewards.joint_vel_arm_swing.weight = 0.0
+        self.rewards.joint_deviation_arm_aux.weight = -0.18
+        self.rewards.joint_vel_arm_aux.weight = -0.01
+        self.rewards.dof_pos_limits_arms.weight = -0.5
+        self.rewards.arm_swing_coordination.weight = 0.0
+        self.rewards.arm_swing_clocked_shoulder_pitch.weight = 1.2
+        self.rewards.arm_swing_clocked_shoulder_pitch.params["period"] = 0.75
+        self.rewards.arm_swing_clocked_shoulder_pitch.params["min_amplitude"] = 0.05
+        self.rewards.arm_swing_clocked_shoulder_pitch.params["max_amplitude"] = 0.38
+        self.rewards.arm_swing_clocked_shoulder_pitch.params["phase_sign"] = -1.0
+        self.rewards.arm_swing_clocked_shoulder_pitch.params["std"] = 0.16
+        self.rewards.arm_swing_clocked_shoulder_pitch.params["side_scale"] = 0.25
+        self.rewards.arm_swing_clocked_shoulder_pitch.params["turn_scale"] = 0.15
+        self.rewards.arm_swing_clocked_shoulder_pitch.params["mixed_turn_scale"] = 0.8
+        self.rewards.arm_swing_clocked_shoulder_velocity.weight = 0.25
+        self.rewards.arm_swing_clocked_shoulder_velocity.params["period"] = 0.75
+        self.rewards.arm_swing_clocked_shoulder_velocity.params["min_amplitude"] = 0.05
+        self.rewards.arm_swing_clocked_shoulder_velocity.params["max_amplitude"] = 0.38
+        self.rewards.arm_swing_clocked_shoulder_velocity.params["max_velocity"] = 1.2
+        self.rewards.arm_swing_clocked_shoulder_velocity.params["phase_sign"] = -1.0
+        self.rewards.arm_swing_clocked_shoulder_velocity.params["std"] = 0.45
+        self.rewards.arm_swing_clocked_shoulder_velocity.params["side_scale"] = 0.25
+        self.rewards.arm_swing_clocked_shoulder_velocity.params["turn_scale"] = 0.15
+        self.rewards.arm_swing_clocked_shoulder_velocity.params["mixed_turn_scale"] = 0.8
+        self.rewards.arm_swing_opposite_leg_phase.weight = 0.0
+        self.rewards.arm_swing_opposite_leg_phase.params["min_amplitude"] = 0.12
+        self.rewards.arm_swing_opposite_leg_phase.params["max_amplitude"] = 0.55
+        self.rewards.arm_swing_opposite_leg_phase.params["leg_phase_scale"] = 0.22
+        self.rewards.arm_swing_opposite_leg_phase.params["leg_velocity_scale"] = 0.8
+        self.rewards.arm_swing_opposite_leg_phase.params["leg_velocity_weight"] = 0.6
+        self.rewards.arm_swing_opposite_leg_phase.params["min_phase_magnitude"] = 0.45
+        self.rewards.arm_swing_opposite_leg_phase.params["phase_sign"] = 1.0
+        self.rewards.arm_swing_opposite_leg_phase.params["std"] = 0.32
+        self.rewards.arm_swing_opposite_foot_phase.weight = 0.0
+        self.rewards.arm_swing_opposite_foot_phase.params["min_amplitude"] = 0.16
+        self.rewards.arm_swing_opposite_foot_phase.params["max_amplitude"] = 0.75
+        self.rewards.arm_swing_opposite_foot_phase.params["foot_phase_scale"] = 0.16
+        self.rewards.arm_swing_opposite_foot_phase.params["min_phase_magnitude"] = 0.5
+        self.rewards.arm_swing_opposite_foot_phase.params["phase_sign"] = 1.0
+        self.rewards.arm_swing_opposite_foot_phase.params["std"] = 0.36
+        self.rewards.arm_swing_amplitude_schedule.weight = 0.0
+        self.rewards.arm_swing_sagittal_velocity.weight = 0.0
+        self.rewards.arm_swing_pose_envelope.weight = 0.0
+
+
+@configclass
+class G1FlatOmniHumanEnvCfg_PLAY(G1FlatOmniHumanEnvCfg):
+    def __post_init__(self) -> None:
+        # post init of parent
+        super().__post_init__()
+
+        self.commands.base_velocity.resampling_time_range = (10.0, 10.0)
+        self.commands.base_velocity.ranges.lin_vel_x = (1.0, 1.0)
+        self.commands.base_velocity.ranges.lin_vel_y = (-0.0, -0.0)
+        self.commands.base_velocity.ranges.ang_vel_z = (-0.0, -0.0)
+        self.commands.base_velocity.heading_command = False
+        self.commands.base_velocity.rel_heading_envs = 0.0
+        self.commands.base_velocity.ranges.heading = None
+
+@configclass
+class G1FlatOmniHumanFullEnvCfg(G1FlatOmniHumanEnvCfg):
+    """Flat G1 omni-directional task with the full command range."""
+
+    def __post_init__(self):
+        # post init of parent
+        super().__post_init__()
+
+        self.commands.base_velocity.ranges.lin_vel_x = (-0.6, 1.2)
+        self.commands.base_velocity.ranges.lin_vel_y = (-0.5, 0.5)
+        self.commands.base_velocity.ranges.ang_vel_z = (-0.6, 0.6)
 
 
 class G1FlatEnvCfg_PLAY(G1FlatEnvCfg):

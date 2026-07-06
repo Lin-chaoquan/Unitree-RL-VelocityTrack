@@ -24,6 +24,17 @@ G1_ARM_JOINTS = [
     ".*_elbow_roll_joint",
 ]
 
+G1_ARM_SWING_JOINTS = [
+    ".*_shoulder_pitch_joint",
+]
+
+G1_ARM_AUX_JOINTS = [
+    ".*_shoulder_roll_joint",
+    ".*_shoulder_yaw_joint",
+    ".*_elbow_pitch_joint",
+    ".*_elbow_roll_joint",
+]
+
 
 @configclass
 class G1Rewards(RewardsCfg):
@@ -87,6 +98,16 @@ class G1Rewards(RewardsCfg):
             "command_threshold": 0.1,
         },
     )
+    feet_contact_count_yaw = RewTerm(
+        func=mdp.feet_contact_count_biped,
+        weight=0.0,
+        params={
+            "command_name": "base_velocity",
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "command_threshold": 0.1,
+            "activation": "omni",
+        },
+    )
     feet_gait_clock = RewTerm(
         func=mdp.feet_gait_clock_biped,
         weight=0.5,
@@ -97,6 +118,22 @@ class G1Rewards(RewardsCfg):
             "command_name": "base_velocity",
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
             "command_threshold": 0.1,
+        },
+    )
+    feet_gait_clock_omni = RewTerm(
+        func=mdp.feet_gait_clock_biped,
+        weight=0.0,
+        params={
+            "period": 0.75,
+            "offset": [0.0, 0.5],
+            "threshold": 0.55,
+            "command_name": "base_velocity",
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "command_threshold": 0.1,
+            "activation": "omni",
+            "turn_scale": 0.45,
+            "side_scale": 0.55,
+            "mode_routing": True,
         },
     )
     feet_close = RewTerm(
@@ -115,6 +152,52 @@ class G1Rewards(RewardsCfg):
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
             "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
+        },
+    )
+    feet_touchdown_velocity = RewTerm(
+        func=mdp.feet_touchdown_velocity_l2,
+        weight=0.0,
+        params={
+            "command_name": "base_velocity",
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
+            "command_threshold": 0.1,
+            "activation": "omni",
+            "max_downward_velocity": 1.5,
+        },
+    )
+    feet_swing_height_trajectory = RewTerm(
+        func=mdp.feet_swing_height_trajectory,
+        weight=0.0,
+        params={
+            "command_name": "base_velocity",
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
+            "period": 0.75,
+            "offset": [0.0, 0.5],
+            "threshold": 0.55,
+            "min_clearance": 0.035,
+            "max_clearance": 0.09,
+            "max_speed": 1.5,
+            "std": 0.035,
+            "command_threshold": 0.1,
+            "activation": "omni",
+            "side_clearance_scale": 0.75,
+            "turn_clearance_scale": 0.55,
+        },
+    )
+    feet_swing_vertical_velocity = RewTerm(
+        func=mdp.feet_swing_vertical_velocity_l2,
+        weight=0.0,
+        params={
+            "command_name": "base_velocity",
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
+            "period": 0.75,
+            "offset": [0.0, 0.5],
+            "threshold": 0.55,
+            "command_threshold": 0.1,
+            "activation": "omni",
+            "deadband": 0.2,
+            "max_velocity": 1.2,
         },
     )
 
@@ -139,6 +222,16 @@ class G1Rewards(RewardsCfg):
         func=mdp.joint_deviation_l1_deadband,
         weight=-0.1,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=G1_ARM_JOINTS), "deadband": 0.08},
+    )
+    joint_deviation_arm_swing = RewTerm(
+        func=mdp.joint_deviation_l1_deadband,
+        weight=0.0,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=G1_ARM_SWING_JOINTS), "deadband": 0.12},
+    )
+    joint_deviation_arm_aux = RewTerm(
+        func=mdp.joint_deviation_l1_deadband,
+        weight=0.0,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=G1_ARM_AUX_JOINTS), "deadband": 0.06},
     )
     joint_deviation_fingers = RewTerm(
         func=mdp.joint_deviation_l1,
@@ -177,6 +270,244 @@ class G1Rewards(RewardsCfg):
         func=mdp.joint_vel_l2_deadband,
         weight=-0.01,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=G1_ARM_JOINTS), "deadband": 0.35},
+    )
+    joint_vel_arm_swing = RewTerm(
+        func=mdp.joint_vel_l2_deadband,
+        weight=0.0,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=G1_ARM_SWING_JOINTS), "deadband": 0.45},
+    )
+    joint_vel_arm_aux = RewTerm(
+        func=mdp.joint_vel_l2_deadband,
+        weight=0.0,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=G1_ARM_AUX_JOINTS), "deadband": 0.18},
+    )
+    stand_still = RewTerm(
+        func=mdp.stand_regularization,
+        weight=0.0,
+        params={
+            "command_name": "base_velocity",
+            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*"]),
+            "command_threshold": 0.08,
+            "base_weight": 1.0,
+            "joint_vel_weight": 0.05,
+            "joint_dev_weight": 0.02,
+        },
+    )
+    arm_swing_coordination = RewTerm(
+        func=mdp.arm_swing_coordination,
+        weight=0.0,
+        params={
+            "command_name": "base_velocity",
+            "arm_cfg": SceneEntityCfg(
+                "robot", joint_names=["left_shoulder_pitch_joint", "right_shoulder_pitch_joint"], preserve_order=True
+            ),
+            "leg_cfg": SceneEntityCfg(
+                "robot", joint_names=["left_hip_pitch_joint", "right_hip_pitch_joint"], preserve_order=True
+            ),
+            "command_threshold": 0.15,
+            "std": 0.35,
+            "side_scale": 0.35,
+            "turn_scale": 0.45,
+        },
+    )
+    arm_swing_clocked_shoulder_pitch = RewTerm(
+        func=mdp.arm_swing_clocked_shoulder_pitch,
+        weight=0.0,
+        params={
+            "command_name": "base_velocity",
+            "arm_cfg": SceneEntityCfg(
+                "robot", joint_names=["left_shoulder_pitch_joint", "right_shoulder_pitch_joint"], preserve_order=True
+            ),
+            "period": 0.75,
+            "min_amplitude": 0.05,
+            "max_amplitude": 0.38,
+            "max_speed": 1.5,
+            "phase_sign": 1.0,
+            "std": 0.16,
+            "command_threshold": 0.08,
+            "side_scale": 0.25,
+            "turn_scale": 0.15,
+            "mixed_turn_scale": 0.8,
+        },
+    )
+    arm_swing_clocked_shoulder_velocity = RewTerm(
+        func=mdp.arm_swing_clocked_shoulder_velocity,
+        weight=0.0,
+        params={
+            "command_name": "base_velocity",
+            "arm_cfg": SceneEntityCfg(
+                "robot", joint_names=["left_shoulder_pitch_joint", "right_shoulder_pitch_joint"], preserve_order=True
+            ),
+            "period": 0.75,
+            "min_amplitude": 0.05,
+            "max_amplitude": 0.38,
+            "max_speed": 1.5,
+            "max_velocity": 1.2,
+            "phase_sign": 1.0,
+            "std": 0.45,
+            "command_threshold": 0.08,
+            "side_scale": 0.25,
+            "turn_scale": 0.15,
+            "mixed_turn_scale": 0.8,
+        },
+    )
+    arm_swing_shoulder_pitch_rms = RewTerm(
+        func=mdp.arm_swing_shoulder_pitch_rms,
+        weight=0.0,
+        log_only=True,
+        params={
+            "arm_cfg": SceneEntityCfg(
+                "robot", joint_names=["left_shoulder_pitch_joint", "right_shoulder_pitch_joint"], preserve_order=True
+            ),
+        },
+    )
+    arm_swing_clocked_shoulder_pitch_error = RewTerm(
+        func=mdp.arm_swing_clocked_shoulder_pitch_error,
+        weight=0.0,
+        log_only=True,
+        params={
+            "command_name": "base_velocity",
+            "arm_cfg": SceneEntityCfg(
+                "robot", joint_names=["left_shoulder_pitch_joint", "right_shoulder_pitch_joint"], preserve_order=True
+            ),
+            "period": 0.75,
+            "min_amplitude": 0.05,
+            "max_amplitude": 0.38,
+            "max_speed": 1.5,
+            "phase_sign": 1.0,
+            "command_threshold": 0.08,
+            "side_scale": 0.25,
+            "turn_scale": 0.15,
+            "mixed_turn_scale": 0.8,
+        },
+    )
+    arm_swing_clocked_shoulder_velocity_error = RewTerm(
+        func=mdp.arm_swing_clocked_shoulder_velocity_error,
+        weight=0.0,
+        log_only=True,
+        params={
+            "command_name": "base_velocity",
+            "arm_cfg": SceneEntityCfg(
+                "robot", joint_names=["left_shoulder_pitch_joint", "right_shoulder_pitch_joint"], preserve_order=True
+            ),
+            "period": 0.75,
+            "min_amplitude": 0.05,
+            "max_amplitude": 0.38,
+            "max_speed": 1.5,
+            "max_velocity": 1.2,
+            "phase_sign": 1.0,
+            "command_threshold": 0.08,
+            "side_scale": 0.25,
+            "turn_scale": 0.15,
+            "mixed_turn_scale": 0.8,
+        },
+    )
+    arm_swing_opposite_leg_phase = RewTerm(
+        func=mdp.arm_swing_opposite_leg_phase,
+        weight=0.0,
+        params={
+            "command_name": "base_velocity",
+            "arm_cfg": SceneEntityCfg(
+                "robot", joint_names=["left_shoulder_pitch_joint", "right_shoulder_pitch_joint"], preserve_order=True
+            ),
+            "leg_cfg": SceneEntityCfg(
+                "robot", joint_names=["left_hip_pitch_joint", "right_hip_pitch_joint"], preserve_order=True
+            ),
+            "command_threshold": 0.15,
+            "min_amplitude": 0.08,
+            "max_amplitude": 0.45,
+            "max_speed": 1.5,
+            "leg_phase_deadband": 0.03,
+            "leg_phase_scale": 0.35,
+            "leg_velocity_deadband": 0.08,
+            "leg_velocity_scale": 1.2,
+            "leg_velocity_weight": 0.35,
+            "min_phase_magnitude": 0.25,
+            "phase_sign": 1.0,
+            "std": 0.20,
+            "side_scale": 0.35,
+            "turn_scale": 0.45,
+        },
+    )
+    arm_swing_opposite_foot_phase = RewTerm(
+        func=mdp.arm_swing_opposite_foot_phase,
+        weight=0.0,
+        params={
+            "command_name": "base_velocity",
+            "arm_cfg": SceneEntityCfg(
+                "robot", joint_names=["left_shoulder_pitch_joint", "right_shoulder_pitch_joint"], preserve_order=True
+            ),
+            "foot_cfg": SceneEntityCfg(
+                "robot", body_names=["left_ankle_roll_link", "right_ankle_roll_link"], preserve_order=True
+            ),
+            "command_threshold": 0.15,
+            "min_amplitude": 0.12,
+            "max_amplitude": 0.65,
+            "max_speed": 1.5,
+            "foot_phase_deadband": 0.015,
+            "foot_phase_scale": 0.22,
+            "min_phase_magnitude": 0.35,
+            "phase_sign": 1.0,
+            "std": 0.30,
+            "side_scale": 0.35,
+            "turn_scale": 0.45,
+        },
+    )
+    arm_swing_amplitude_schedule = RewTerm(
+        func=mdp.arm_swing_amplitude_schedule,
+        weight=0.0,
+        params={
+            "command_name": "base_velocity",
+            "arm_cfg": SceneEntityCfg(
+                "robot", joint_names=["left_shoulder_pitch_joint", "right_shoulder_pitch_joint"], preserve_order=True
+            ),
+            "period": 0.75,
+            "min_amplitude": 0.05,
+            "max_amplitude": 0.45,
+            "max_speed": 1.5,
+            "std": 0.18,
+            "phase_offset": 0.5,
+            "command_threshold": 0.08,
+        },
+    )
+    arm_swing_sagittal_velocity = RewTerm(
+        func=mdp.arm_swing_sagittal_velocity,
+        weight=0.0,
+        params={
+            "command_name": "base_velocity",
+            "body_cfg": SceneEntityCfg(
+                "robot", body_names=["left_elbow_roll_link", "right_elbow_roll_link"], preserve_order=True
+            ),
+            "period": 0.75,
+            "min_velocity": 0.10,
+            "max_velocity": 0.65,
+            "max_speed": 1.5,
+            "std": 0.35,
+            "lateral_weight": 2.0,
+            "vertical_weight": 0.25,
+            "phase_offset": 0.5,
+            "command_threshold": 0.12,
+            "side_scale": 0.35,
+            "turn_scale": 0.45,
+        },
+    )
+    arm_swing_pose_envelope = RewTerm(
+        func=mdp.arm_swing_pose_envelope,
+        weight=0.0,
+        params={
+            "command_name": "base_velocity",
+            "body_cfg": SceneEntityCfg(
+                "robot", body_names=["left_elbow_roll_link", "right_elbow_roll_link"], preserve_order=True
+            ),
+            "torso_cfg": SceneEntityCfg("robot", body_names="torso_link"),
+            "min_lateral": 0.08,
+            "max_lateral": 0.34,
+            "max_vertical": 0.05,
+            "min_vertical": -0.55,
+            "max_sagittal": 0.50,
+            "std": 0.18,
+            "command_threshold": 0.08,
+        },
     )
     dof_torque_rate_l2 = RewTerm(
         func=mdp.joint_torque_rate_l2,
