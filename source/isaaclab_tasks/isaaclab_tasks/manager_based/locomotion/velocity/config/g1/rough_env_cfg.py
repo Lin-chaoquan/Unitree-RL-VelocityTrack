@@ -55,6 +55,12 @@ class G1Rewards(RewardsCfg):
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp, weight=2.0, params={"command_name": "base_velocity", "std": 0.5}
     )
+    error_vel_y = RewTerm(
+        func=mdp.track_lin_vel_y_yaw_frame_abs_error,
+        weight=0.0,
+        log_only=True,
+        params={"command_name": "base_velocity"},
+    )
     # track_ang_vel_z_error = RewTerm(
     #     func=mdp.track_ang_vel_z_world_error,
     #     weight=0.0,
@@ -144,6 +150,34 @@ class G1Rewards(RewardsCfg):
             "distance_threshold": 0.08,
             "command_name": "base_velocity",
             "command_threshold": 0.1,
+        },
+    )
+    feet_lateral_order = RewTerm(
+        func=mdp.feet_lateral_order_biped,
+        weight=0.0,
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot", body_names=["left_ankle_roll_link", "right_ankle_roll_link"], preserve_order=True
+            ),
+            "min_width": 0.12,
+            "command_name": "base_velocity",
+            "command_threshold": 0.1,
+            "activation": "omni",
+        },
+    )
+    feet_lateral_width = RewTerm(
+        func=mdp.feet_lateral_width_biped,
+        weight=0.0,
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot", body_names=["left_ankle_roll_link", "right_ankle_roll_link"], preserve_order=True
+            ),
+            "command_name": "base_velocity",
+            "min_width": 0.16,
+            "max_width": 0.28,
+            "max_lateral_speed": 1.8,
+            "command_threshold": 0.1,
+            "activation": "omni",
         },
     )
     feet_slide = RewTerm(
@@ -361,6 +395,18 @@ class G1Rewards(RewardsCfg):
             ),
         },
     )
+    arm_swing_target_amplitude = RewTerm(
+        func=mdp.arm_swing_target_amplitude,
+        weight=0.0,
+        log_only=True,
+        params={
+            "command_name": "base_velocity",
+            "min_amplitude": 0.12,
+            "max_amplitude": 0.75,
+            "max_speed": 2.8,
+            "command_threshold": 0.08,
+        },
+    )
     arm_swing_clocked_shoulder_pitch_error = RewTerm(
         func=mdp.arm_swing_clocked_shoulder_pitch_error,
         weight=0.0,
@@ -523,6 +569,16 @@ class G1Rewards(RewardsCfg):
         func=mdp.body_height_l2_deadband,
         weight=0.0,
         params={"asset_cfg": SceneEntityCfg("robot", body_names="torso_link"), "target_height": 0.74, "deadband": 0.035},
+    )
+    centroidal_yaw_momentum = RewTerm(
+        func=mdp.centroidal_yaw_angular_momentum_l2,
+        weight=0.0,
+        log_only=True,
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
+            "include_spin": True,
+            "normalize_by_mass": True,
+        },
     )
 
 

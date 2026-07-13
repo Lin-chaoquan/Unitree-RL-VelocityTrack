@@ -240,6 +240,42 @@ gym.register(
 
 
 gym.register(
+    id="Isaac-Velocity-Flat-G1-HighSpeed-Curriculum-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.flat_env_cfg:G1FlatHighSpeedCurriculumEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1FlatHighSpeedCurriculumPPORunnerCfg",
+        "skrl_cfg_entry_point": f"{agents.__name__}:skrl_flat_ppo_cfg.yaml",
+    },
+)
+
+
+gym.register(
+    id="Isaac-Velocity-Flat-G1-HighSpeed-Curriculum-Play-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.flat_env_cfg:G1FlatHighSpeedCurriculumEnvCfg_PLAY",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1FlatHighSpeedCurriculumPPORunnerCfg",
+        "skrl_cfg_entry_point": f"{agents.__name__}:skrl_flat_ppo_cfg.yaml",
+    },
+)
+
+
+gym.register(
+    id="Isaac-Velocity-Flat-G1-HighSpeed-Curriculum-SelfCollision-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.flat_env_cfg:G1FlatHighSpeedCurriculumSelfCollisionEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1FlatHighSpeedCurriculumPPORunnerCfg",
+        "skrl_cfg_entry_point": f"{agents.__name__}:skrl_flat_ppo_cfg.yaml",
+    },
+)
+
+
+gym.register(
     id="Isaac-Velocity-Flat-G1-OmniHuman-Sim2Real-v0",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,

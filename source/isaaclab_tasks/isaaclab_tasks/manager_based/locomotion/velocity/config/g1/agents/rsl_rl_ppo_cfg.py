@@ -170,6 +170,20 @@ class G1FlatOmniHumanFullPPORunnerCfg(G1FlatOmniHumanPPORunnerCfg):
 
 
 @configclass
+class G1FlatHighSpeedCurriculumPPORunnerCfg(G1FlatOmniHumanPPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.experiment_name = "g1_flat_highspeed_curriculum"
+        self.max_iterations = 8000
+        self.policy.actor_hidden_dims = [512, 256, 128]
+        self.policy.critic_hidden_dims = [512, 256, 128]
+        # Keep normalization disabled so existing G1/OmniHuman checkpoints can be resumed directly.
+        self.policy.actor_obs_normalization = False
+        self.policy.critic_obs_normalization = False
+
+
+@configclass
 class G1FlatOmniHumanSimToRealPPORunnerCfg(G1FlatOmniHumanPPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()

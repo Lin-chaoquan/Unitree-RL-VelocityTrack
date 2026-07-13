@@ -20,7 +20,7 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers.manager_base import ManagerTermBase
 from isaaclab.managers.manager_term_cfg import RewardTermCfg
 from isaaclab.sensors import ContactSensor
-from isaaclab.utils.math import quat_apply_inverse, yaw_quat
+from isaaclab.utils.math import quat_apply, quat_apply_inverse, yaw_quat
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
@@ -301,6 +301,59 @@ def feet_close_biped(
     return penalty
 
 
+def feet_lateral_order_biped(
+    env,
+    asset_cfg: SceneEntityCfg,
+    min_width: float,
+    command_name: str | None = None,
+    command_threshold: float = 0.1,
+    activation: str = "omni",
+) -> torch.Tensor:
+    """Penalize left/right foot order reversals in the robot yaw frame.
+
+    ``asset_cfg`` must preserve the order ``[left_foot, right_foot]``. This term catches cross-over
+    steps that can still have a large Euclidean foot distance and therefore pass ``feet_close_biped``.
+    """
+    asset = env.scene[asset_cfg.name]
+    if len(asset_cfg.body_ids) != 2:
+        raise ValueError("feet_lateral_order_biped expects exactly two feet in asset_cfg.body_ids.")
+
+    foot_rel_w = asset.data.body_pos_w[:, asset_cfg.body_ids, :] - asset.data.root_pos_w.unsqueeze(1)
+    foot_rel_b = _vectors_in_base_yaw_frame(asset, foot_rel_w)
+    lateral_gap = foot_rel_b[:, 0, 1] - foot_rel_b[:, 1, 1]
+    penalty = torch.clamp(min_width - lateral_gap, min=0.0) / max(min_width, 1.0e-6)
+    if command_name is not None:
+        command = env.command_manager.get_command(command_name)[:, :3]
+        penalty *= _command_mask(command, command_threshold, activation)
+    return penalty
+
+
+def feet_lateral_width_biped(
+    env,
+    asset_cfg: SceneEntityCfg,
+    command_name: str,
+    min_width: float = 0.16,
+    max_width: float = 0.28,
+    max_lateral_speed: float = 1.8,
+    command_threshold: float = 0.1,
+    activation: str = "omni",
+) -> torch.Tensor:
+    """Penalize a too-narrow biped stance, with a wider target for larger lateral commands."""
+    asset = env.scene[asset_cfg.name]
+    if len(asset_cfg.body_ids) != 2:
+        raise ValueError("feet_lateral_width_biped expects exactly two feet in asset_cfg.body_ids.")
+
+    command = env.command_manager.get_command(command_name)[:, :3]
+    foot_rel_w = asset.data.body_pos_w[:, asset_cfg.body_ids, :] - asset.data.root_pos_w.unsqueeze(1)
+    foot_rel_b = _vectors_in_base_yaw_frame(asset, foot_rel_w)
+    lateral_gap = foot_rel_b[:, 0, 1] - foot_rel_b[:, 1, 1]
+    lateral_ratio = torch.clamp(torch.abs(command[:, 1]) / max_lateral_speed, 0.0, 1.0)
+    target_width = min_width + (max_width - min_width) * lateral_ratio
+    penalty = torch.clamp(target_width - lateral_gap, min=0.0) / torch.clamp(target_width, min=1.0e-6)
+    penalty *= _command_mask(command, command_threshold, activation)
+    return penalty
+
+
 def feet_slide(env, sensor_cfg: SceneEntityCfg, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
     """Penalize feet sliding.
 
@@ -459,6 +512,62 @@ def joint_power_abs(env, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) ->
     return torch.sum(torch.abs(power), dim=1)
 
 
+def centroidal_angular_momentum_l2(
+    env,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    axes: str = "xyz",
+    include_spin: bool = True,
+    normalize_by_mass: bool = True,
+) -> torch.Tensor:
+    """Return squared centroidal angular momentum around the robot COM in the base-yaw frame."""
+    asset = env.scene[asset_cfg.name]
+    body_ids = asset_cfg.body_ids
+    state_device = asset.data.body_com_pos_w.device
+    masses = asset.data.default_mass[:, body_ids].to(device=state_device).unsqueeze(-1)
+    num_bodies = masses.shape[1]
+    total_mass = torch.clamp(torch.sum(masses, dim=1), min=1.0e-6)
+    com_pos = torch.sum(asset.data.body_com_pos_w[:, body_ids, :] * masses, dim=1) / total_mass
+    com_vel = torch.sum(asset.data.body_com_lin_vel_w[:, body_ids, :] * masses, dim=1) / total_mass
+
+    rel_pos = asset.data.body_com_pos_w[:, body_ids, :] - com_pos.unsqueeze(1)
+    rel_vel = asset.data.body_com_lin_vel_w[:, body_ids, :] - com_vel.unsqueeze(1)
+    momentum = torch.sum(torch.cross(rel_pos, masses * rel_vel, dim=-1), dim=1)
+
+    if include_spin:
+        inertia = asset.data.default_inertia[:, body_ids, :].to(device=state_device).view(masses.shape[0], num_bodies, 3, 3)
+        omega_w = asset.data.body_com_ang_vel_w[:, body_ids, :]
+        quat_w = asset.data.body_com_quat_w[:, body_ids, :]
+        omega_b = quat_apply_inverse(quat_w.reshape(-1, 4), omega_w.reshape(-1, 3)).view_as(omega_w)
+        spin_b = torch.matmul(inertia, omega_b.unsqueeze(-1)).squeeze(-1)
+        spin_w = quat_apply(quat_w.reshape(-1, 4), spin_b.reshape(-1, 3)).view_as(spin_b)
+        momentum = momentum + torch.sum(spin_w, dim=1)
+
+    momentum_b = _vectors_in_base_yaw_frame(asset, momentum)
+    components = []
+    if "x" in axes:
+        components.append(momentum_b[:, 0])
+    if "y" in axes:
+        components.append(momentum_b[:, 1])
+    if "z" in axes:
+        components.append(momentum_b[:, 2])
+    if len(components) == 0:
+        raise ValueError("centroidal_angular_momentum_l2 expects axes to include at least one of 'x', 'y', or 'z'.")
+    selected = torch.stack(components, dim=1)
+    if normalize_by_mass:
+        selected = selected / total_mass
+    return torch.sum(torch.square(selected), dim=1)
+
+
+def centroidal_yaw_angular_momentum_l2(
+    env,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    include_spin: bool = True,
+    normalize_by_mass: bool = True,
+) -> torch.Tensor:
+    """Return squared yaw-axis centroidal angular momentum around the robot COM."""
+    return centroidal_angular_momentum_l2(env, asset_cfg, axes="z", include_spin=include_spin, normalize_by_mass=normalize_by_mass)
+
+
 def _arm_swing_clock_targets(
     env,
     command_name: str,
@@ -592,6 +701,22 @@ def arm_swing_shoulder_pitch_rms(env, arm_cfg: SceneEntityCfg) -> torch.Tensor:
         raise ValueError("arm_swing_shoulder_pitch_rms expects two shoulder pitch joints.")
     arm = asset.data.joint_pos[:, arm_cfg.joint_ids] - asset.data.default_joint_pos[:, arm_cfg.joint_ids]
     return torch.sqrt(torch.mean(torch.square(arm), dim=1))
+
+
+def arm_swing_target_amplitude(
+    env,
+    command_name: str,
+    min_amplitude: float = 0.12,
+    max_amplitude: float = 0.75,
+    max_speed: float = 2.8,
+    command_threshold: float = 0.08,
+) -> torch.Tensor:
+    """Log the command-scaled arm swing target amplitude."""
+    command = env.command_manager.get_command(command_name)[:, :3]
+    speed = _command_speed(command)
+    speed_ratio = torch.clamp(speed / max_speed, 0.0, 1.0)
+    amplitude = min_amplitude + (max_amplitude - min_amplitude) * speed_ratio
+    return torch.where(speed > command_threshold, amplitude, torch.zeros_like(amplitude))
 
 
 def arm_swing_clocked_shoulder_pitch_error(
@@ -979,6 +1104,15 @@ def track_lin_vel_xy_yaw_frame_exp(
         torch.square(env.command_manager.get_command(command_name)[:, :2] - vel_yaw[:, :2]), dim=1
     )
     return torch.exp(-lin_vel_error / std**2)
+
+
+def track_lin_vel_y_yaw_frame_abs_error(
+    env, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """Log absolute lateral velocity tracking error in the robot yaw frame."""
+    asset = env.scene[asset_cfg.name]
+    vel_yaw = quat_apply_inverse(yaw_quat(asset.data.root_quat_w), asset.data.root_lin_vel_w[:, :3])
+    return torch.abs(env.command_manager.get_command(command_name)[:, 1] - vel_yaw[:, 1])
 
 
 # def track_lin_vel_xy_yaw_frame_error(
