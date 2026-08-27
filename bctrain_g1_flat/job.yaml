@@ -1,0 +1,65 @@
+api_version: v1
+kind: DLCJob
+
+metadata:
+  name: g1-29dof-flat-velocity
+  project: g1-29dof-flat
+
+spec:
+  # Alibaba Cloud settings below are copied from examples/isaaclab/job.yaml.
+  image: dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai-training-algorithm/isaaclab:2.3.2-isaacsim5.1.0-py311-ubuntu24.04
+  resource_id: quota-4090
+  priority: 1
+
+  resources:
+    gpu: 1
+    cpu: 12
+    memory_gb: 60
+
+  code:
+    # This file is under bctrain_g1_flat/, so ".." packages the IsaacLab repo.
+    project_path: ..
+    exclude:
+      - .git
+      - .venv-bctrainctl
+      - _isaac_sim
+      - logs
+      - outputs
+      - "*.zip"
+      - "*.whl"
+    use_gitignore: true
+    # The repository ignores USD files globally. This local model is required
+    # by G1_29DOF_LOCOMOTION_CFG, so explicitly include only this USD asset.
+    gitignore_include:
+      - source/isaaclab_assets/isaaclab_assets/robots/g1_29dof/g1_29dof.usd
+
+  runtime:
+    workdir: /workspace/code
+    entrypoint: bctrain_g1_flat/train.sh
+    env:
+      PYTHONUNBUFFERED: "1"
+      PIP_INDEX_URL: https://mirrors.aliyun.com/pypi/simple
+      PIP_DEFAULT_TIMEOUT: "1800"
+      G1_TASK: Isaac-Velocity-Flat-G1-29DOF-v0
+      NUM_ENVS: "16384"
+      MAX_ITERATIONS: "1000"
+      SEED: "42"
+      RUN_NAME: aliyun_g1_29dof_flat
+
+  storage:
+    mounts:
+      - name: output
+        type: oss
+        source: oss://oss-pai-wulanchabu-stark/bctrainctl/output/g1_29dof_flat
+        target: /workspace/output
+        read_only: false
+      - name: data-oss
+        type: oss
+        source: oss://oss-pai-wulanchabu-stark.oss-cn-wulanchabu-internal.aliyuncs.com/
+        target: /mnt/data_oss
+        read_only: false
+      - name: data-nas
+        type: nas
+        source: nas://29377a494cb-afl20.cn-wulanchabu.nas.aliyuncs.com/
+        target: /mnt/data_nas/
+        read_only: false

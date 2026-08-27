@@ -162,7 +162,7 @@ class RewardsCfg:
     #     params={"asset_cfg": SceneEntityCfg("robot", joint_names=["pole_to_pendulum"]), "command_name": "joint_pose_target"}
     # )
     pendulum_abs_pos = RewTerm(func=mdp.double_pendulum_angle_l2,
-        weight=-1.0,
+        weight=-1.2,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["cart_to_pole", "pole_to_pendulum"]), "command_name": "joint_pose_target"}
     )
     # (4) Shaping tasks: lower cart velocity
@@ -189,7 +189,7 @@ class RewardsCfg:
     # )
     stationary = RewTerm(
         func=mdp.near_target_stationary_l2,
-        weight=-0.07,
+        weight=-0.1,
         params={
             "command_name": "joint_pose_target",
             "std": 0.35,
@@ -211,10 +211,10 @@ class RewardsCfg:
     # (7) Shaping tasks: keep cart near target position
 
 
-    action_rate = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
+    action_rate = RewTerm(func=mdp.action_rate_l2, weight=-1.0e-5)
     near_target_action_rate = RewTerm(
         func=mdp.near_target_action_rate_l2,
-        weight=-0.5,
+        weight=-0.9,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -228,7 +228,7 @@ class RewardsCfg:
 
     near_target_action = RewTerm(
         func=mdp.near_target_action_l2,
-        weight=-0.1,
+        weight=-0.05,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",

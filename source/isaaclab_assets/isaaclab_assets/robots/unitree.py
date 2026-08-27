@@ -20,6 +20,8 @@ The following configurations are available:
 Reference: https://github.com/unitreerobotics/unitree_ros
 """
 
+import os
+
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ActuatorNetMLPCfg, DCMotorCfg, ImplicitActuatorCfg
 from isaaclab.assets.articulation import ArticulationCfg
@@ -382,6 +384,134 @@ G1_MINIMAL_CFG.spawn.usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Robots/Unitree/G1/g1_mi
 """Configuration for the Unitree G1 Humanoid robot with fewer collision meshes.
 
 This configuration removes most collision meshes to speed up simulation.
+"""
+
+
+G1_29DOF_POLICY_JOINT_NAMES = [
+    "left_hip_pitch_joint",
+    "left_hip_roll_joint",
+    "left_hip_yaw_joint",
+    "left_knee_joint",
+    "left_ankle_pitch_joint",
+    "left_ankle_roll_joint",
+    "right_hip_pitch_joint",
+    "right_hip_roll_joint",
+    "right_hip_yaw_joint",
+    "right_knee_joint",
+    "right_ankle_pitch_joint",
+    "right_ankle_roll_joint",
+    "waist_yaw_joint",
+    "waist_roll_joint",
+    "waist_pitch_joint",
+    "left_shoulder_pitch_joint",
+    "left_shoulder_roll_joint",
+    "left_shoulder_yaw_joint",
+    "left_elbow_joint",
+    "left_wrist_roll_joint",
+    "left_wrist_pitch_joint",
+    "left_wrist_yaw_joint",
+    "right_shoulder_pitch_joint",
+    "right_shoulder_roll_joint",
+    "right_shoulder_yaw_joint",
+    "right_elbow_joint",
+    "right_wrist_roll_joint",
+    "right_wrist_pitch_joint",
+    "right_wrist_yaw_joint",
+]
+"""Canonical joint order used by G1 29-DOF locomotion policies."""
+
+
+G1_29DOF_LOCOMOTION_CFG = ArticulationCfg(
+    spawn=sim_utils.UsdFileCfg(
+        usd_path=os.path.join(os.path.dirname(__file__), "g1_29dof", "g1_29dof.usd"),
+        activate_contact_sensors=True,
+        rigid_props=sim_utils.RigidBodyPropertiesCfg(
+            disable_gravity=False,
+            retain_accelerations=False,
+            linear_damping=0.0,
+            angular_damping=0.0,
+            max_linear_velocity=1000.0,
+            max_angular_velocity=1000.0,
+            max_depenetration_velocity=1.0,
+        ),
+        articulation_props=sim_utils.ArticulationRootPropertiesCfg(
+            enabled_self_collisions=False,
+            fix_root_link=False,
+            solver_position_iteration_count=8,
+            solver_velocity_iteration_count=4,
+        ),
+    ),
+    init_state=ArticulationCfg.InitialStateCfg(
+        pos=(0.0, 0.0, 0.8124),
+        rot=(1.0, 0.0, 0.0, 0.0),
+        joint_pos={
+            "left_shoulder_roll_joint": 0.174,
+            "right_shoulder_roll_joint": -0.174,
+            ".*_elbow_joint": 1.57,
+        },
+        joint_vel={".*": 0.0},
+    ),
+    soft_joint_pos_limit_factor=0.9,
+    actuators={
+        "all_joints": ImplicitActuatorCfg(
+            joint_names_expr=G1_29DOF_POLICY_JOINT_NAMES,
+            effort_limit_sim={
+                ".*_hip_.*_joint": 88.0,
+                ".*_knee_joint": 139.0,
+                ".*_ankle_.*_joint": 35.0,
+                "waist_yaw_joint": 88.0,
+                "waist_(roll|pitch)_joint": 35.0,
+                ".*_(shoulder_.*|elbow|wrist_roll)_joint": 25.0,
+                ".*_wrist_(pitch|yaw)_joint": 5.0,
+            },
+            velocity_limit_sim={
+                ".*_hip_.*_joint": 32.0,
+                ".*_knee_joint": 20.0,
+                ".*_ankle_.*_joint": 30.0,
+                "waist_yaw_joint": 32.0,
+                "waist_(roll|pitch)_joint": 30.0,
+                ".*_(shoulder_.*|elbow|wrist_roll)_joint": 37.0,
+                ".*_wrist_(pitch|yaw)_joint": 22.0,
+            },
+            stiffness={
+                ".*_hip_(pitch|yaw)_joint": 40.1792,
+                ".*_hip_roll_joint": 99.0984,
+                ".*_knee_joint": 99.0984,
+                ".*_ankle_.*_joint": 28.5012,
+                "waist_yaw_joint": 40.1792,
+                "waist_(roll|pitch)_joint": 28.5012,
+                ".*_(shoulder_.*|elbow|wrist_roll)_joint": 14.2506,
+                ".*_wrist_(pitch|yaw)_joint": 16.7783,
+            },
+            damping={
+                ".*_hip_(pitch|yaw)_joint": 2.5579,
+                ".*_hip_roll_joint": 6.3088,
+                ".*_knee_joint": 6.3088,
+                ".*_ankle_.*_joint": 1.8144,
+                "waist_yaw_joint": 2.5579,
+                "waist_(roll|pitch)_joint": 1.8144,
+                ".*_(shoulder_.*|elbow|wrist_roll)_joint": 0.9072,
+                ".*_wrist_(pitch|yaw)_joint": 1.0681,
+            },
+            armature={
+                ".*_hip_(pitch|yaw)_joint": 0.0102,
+                ".*_hip_roll_joint": 0.0251,
+                ".*_knee_joint": 0.0251,
+                ".*_ankle_.*_joint": 0.0072,
+                "waist_yaw_joint": 0.0102,
+                "waist_(roll|pitch)_joint": 0.0072,
+                ".*_(shoulder_.*|elbow|wrist_roll)_joint": 0.0036,
+                ".*_wrist_(pitch|yaw)_joint": 0.0043,
+            },
+            friction=0.01,
+            dynamic_friction=0.01,
+            viscous_friction=0.01,
+        ),
+    },
+)
+"""Configuration for the local Unitree G1 29-DOF model used by locomotion tasks.
+
+The physical parameters and policy joint order mirror ``g1_29dof/robot_config.yaml``.
 """
 
 

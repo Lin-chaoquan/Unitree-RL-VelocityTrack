@@ -1,0 +1,154 @@
+robot_name: g1_29dof
+sysID: false
+ctrl_type: series
+# total_mass: sum of URDF link inertial mass values in kg
+total_mass: 35.1141
+# root_link: link directly connected to the free/floating joint
+root_link: pelvis
+# root_height: nominal root_link z distance to the lowest foot_link collision point at init pose
+root_height: 0.7924
+# imu_link: use a single string or 1-item list; current candidate pattern is .*imu.*
+imu_link: [imu_in_torso]
+# foot_link: must be a 2-item list; current candidate patterns are .*ankle_roll_link, .*foot.*
+foot_link: [left_ankle_roll_link,  right_ankle_roll_link]
+# torso_link: must be single string; current candidate pattern is .*torso_link
+torso_link: torso_link
+# pelvis_link: must be single string; current candidate pattern is .*pelvis_link
+pelvis_link: pelvis
+# hand_link: must be exactly 2 link or none; current candidate pattern is .*hand.*
+hand_link: [left_rubber_hand,  right_rubber_hand]
+init_state:
+  # root_pos.z: root_height + 20mm nominal clearance
+  root_pos: [0,  0,  0.8124]
+  # root_rot quaternion format: [x, y, z, w]
+  root_rot: [0,  0,  0,  1]
+  joint_pos:
+    "right_shoulder_roll_joint": -0.174
+    "left_shoulder_roll_joint": 0.174
+    ".*elbow_joint": 1.57
+# Numeric formatting: values use decimal text for readability.
+# Most floats keep 4 decimal places; nonzero values with abs(value) < 1e-3 keep up to 6 decimals.
+actuated_joints:
+  #                           [   type,   Tm,  Vm,       kp,      kd,    arma,  fric,  damp]
+  left_hip_pitch_joint      : [generic,   88,  32,  40.1792,  2.5579,  0.0102,  0.01,  0.01]
+  left_hip_roll_joint       : [generic,   88,  32,  99.0984,  6.3088,  0.0251,  0.01,  0.01]
+  left_hip_yaw_joint        : [generic,   88,  32,  40.1792,  2.5579,  0.0102,  0.01,  0.01]
+  left_knee_joint           : [generic,  139,  20,  99.0984,  6.3088,  0.0251,  0.01,  0.01]
+  left_ankle_pitch_joint    : [generic,   35,  30,  28.5012,  1.8144,  0.0072,  0.01,  0.01]
+  left_ankle_roll_joint     : [generic,   35,  30,  28.5012,  1.8144,  0.0072,  0.01,  0.01]
+  right_hip_pitch_joint     : [generic,   88,  32,  40.1792,  2.5579,  0.0102,  0.01,  0.01]
+  right_hip_roll_joint      : [generic,   88,  32,  99.0984,  6.3088,  0.0251,  0.01,  0.01]
+  right_hip_yaw_joint       : [generic,   88,  32,  40.1792,  2.5579,  0.0102,  0.01,  0.01]
+  right_knee_joint          : [generic,  139,  20,  99.0984,  6.3088,  0.0251,  0.01,  0.01]
+  right_ankle_pitch_joint   : [generic,   35,  30,  28.5012,  1.8144,  0.0072,  0.01,  0.01]
+  right_ankle_roll_joint    : [generic,   35,  30,  28.5012,  1.8144,  0.0072,  0.01,  0.01]
+  waist_yaw_joint           : [generic,   88,  32,  40.1792,  2.5579,  0.0102,  0.01,  0.01]
+  waist_roll_joint          : [generic,   35,  30,  28.5012,  1.8144,  0.0072,  0.01,  0.01]
+  waist_pitch_joint         : [generic,   35,  30,  28.5012,  1.8144,  0.0072,  0.01,  0.01]
+  left_shoulder_pitch_joint : [generic,   25,  37,  14.2506,  0.9072,  0.0036,  0.01,  0.01]
+  left_shoulder_roll_joint  : [generic,   25,  37,  14.2506,  0.9072,  0.0036,  0.01,  0.01]
+  left_shoulder_yaw_joint   : [generic,   25,  37,  14.2506,  0.9072,  0.0036,  0.01,  0.01]
+  left_elbow_joint          : [generic,   25,  37,  14.2506,  0.9072,  0.0036,  0.01,  0.01]
+  left_wrist_roll_joint     : [generic,   25,  37,  14.2506,  0.9072,  0.0036,  0.01,  0.01]
+  left_wrist_pitch_joint    : [generic,    5,  22,  16.7783,  1.0681,  0.0043,  0.01,  0.01]
+  left_wrist_yaw_joint      : [generic,    5,  22,  16.7783,  1.0681,  0.0043,  0.01,  0.01]
+  right_shoulder_pitch_joint: [generic,   25,  37,  14.2506,  0.9072,  0.0036,  0.01,  0.01]
+  right_shoulder_roll_joint : [generic,   25,  37,  14.2506,  0.9072,  0.0036,  0.01,  0.01]
+  right_shoulder_yaw_joint  : [generic,   25,  37,  14.2506,  0.9072,  0.0036,  0.01,  0.01]
+  right_elbow_joint         : [generic,   25,  37,  14.2506,  0.9072,  0.0036,  0.01,  0.01]
+  right_wrist_roll_joint    : [generic,   25,  37,  14.2506,  0.9072,  0.0036,  0.01,  0.01]
+  right_wrist_pitch_joint   : [generic,    5,  22,  16.7783,  1.0681,  0.0043,  0.01,  0.01]
+  right_wrist_yaw_joint     : [generic,    5,  22,  16.7783,  1.0681,  0.0043,  0.01,  0.01]
+# WARNING: DO NOT MODIFY
+policy_joint_names:
+  - left_hip_pitch_joint
+  - left_hip_roll_joint
+  - left_hip_yaw_joint
+  - left_knee_joint
+  - left_ankle_pitch_joint
+  - left_ankle_roll_joint
+  - right_hip_pitch_joint
+  - right_hip_roll_joint
+  - right_hip_yaw_joint
+  - right_knee_joint
+  - right_ankle_pitch_joint
+  - right_ankle_roll_joint
+  - waist_yaw_joint
+  - waist_roll_joint
+  - waist_pitch_joint
+  - left_shoulder_pitch_joint
+  - left_shoulder_roll_joint
+  - left_shoulder_yaw_joint
+  - left_elbow_joint
+  - left_wrist_roll_joint
+  - left_wrist_pitch_joint
+  - left_wrist_yaw_joint
+  - right_shoulder_pitch_joint
+  - right_shoulder_roll_joint
+  - right_shoulder_yaw_joint
+  - right_elbow_joint
+  - right_wrist_roll_joint
+  - right_wrist_pitch_joint
+  - right_wrist_yaw_joint
+# WARNING: DO NOT MODIFY
+ref_joint_order:
+  - left_hip_pitch_joint
+  - left_hip_roll_joint
+  - left_hip_yaw_joint
+  - left_knee_joint
+  - left_ankle_pitch_joint
+  - left_ankle_roll_joint
+  - right_hip_pitch_joint
+  - right_hip_roll_joint
+  - right_hip_yaw_joint
+  - right_knee_joint
+  - right_ankle_pitch_joint
+  - right_ankle_roll_joint
+  - waist_yaw_joint
+  - waist_roll_joint
+  - waist_pitch_joint
+  - left_shoulder_pitch_joint
+  - left_shoulder_roll_joint
+  - left_shoulder_yaw_joint
+  - left_elbow_joint
+  - left_wrist_roll_joint
+  - left_wrist_pitch_joint
+  - left_wrist_yaw_joint
+  - right_shoulder_pitch_joint
+  - right_shoulder_roll_joint
+  - right_shoulder_yaw_joint
+  - right_elbow_joint
+  - right_wrist_roll_joint
+  - right_wrist_pitch_joint
+  - right_wrist_yaw_joint
+# WARNING: DO NOT MODIFY
+ref_link_order:
+  - left_hip_pitch_link
+  - left_hip_roll_link
+  - left_hip_yaw_link
+  - left_knee_link
+  - left_ankle_pitch_link
+  - left_ankle_roll_link
+  - right_hip_pitch_link
+  - right_hip_roll_link
+  - right_hip_yaw_link
+  - right_knee_link
+  - right_ankle_pitch_link
+  - right_ankle_roll_link
+  - waist_yaw_link
+  - waist_roll_link
+  - torso_link
+  - left_shoulder_pitch_link
+  - left_shoulder_roll_link
+  - left_shoulder_yaw_link
+  - left_elbow_link
+  - left_wrist_roll_link
+  - left_wrist_pitch_link
+  - left_wrist_yaw_link
+  - right_shoulder_pitch_link
+  - right_shoulder_roll_link
+  - right_shoulder_yaw_link
+  - right_elbow_link
+  - right_wrist_roll_link
+  - right_wrist_pitch_link
+  - right_wrist_yaw_link
